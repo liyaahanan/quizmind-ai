@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import pdfParse from 'pdf-parse'
+import * as pdfParse from 'pdf-parse'
 import type { GeneratedMcq } from '@/lib/supabase/types'
 
 export const runtime = 'nodejs'
