@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import * as pdfParse from 'pdf-parse'
 import type { GeneratedMcq } from '@/lib/supabase/types'
 
 export const runtime = 'nodejs'
@@ -113,9 +112,11 @@ export async function POST(request: Request) {
 
     if (file && file.size > 0) {
       if (file.type === 'application/pdf') {
-        const buffer = Buffer.from(await file.arrayBuffer())
-        const parsed = await pdfParse(buffer)
-        content = `${content}\n${parsed.text}`.trim()
+        // PDF parsing temporarily disabled for Next.js 16 + Turbopack compatibility
+        // TODO: Implement PDF parsing with Web-compatible library when available
+        return NextResponse.json({ 
+          error: 'PDF upload temporarily disabled. Please paste text content directly.' 
+        }, { status: 400 })
       } else {
         const text = await file.text()
         content = `${content}\n${text}`.trim()
