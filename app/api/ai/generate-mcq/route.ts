@@ -32,8 +32,8 @@ Syllabus content:
 ${text.slice(0, 12000)}
 `
 
-const callOpenAI = async (prompt: string) => {
-  const apiKey = process.env.OPENAI_API_KEY
+const callGemini = async (prompt: string) => {
+  const apiKey =AIzaSyAZA7iWCwTvlKib4fr4bsWivlHPOkqJ7XI
   if (!apiKey) throw new Error('OPENAI_API_KEY is missing.')
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
