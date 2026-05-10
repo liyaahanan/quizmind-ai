@@ -8,6 +8,9 @@ import type {
   QuizQuestion,
   Result,
   StudentQuizSummary,
+  QuizSet,
+  StudentQuizAssignment,
+  Question,
 } from './types'
 
 export const fetchQuizzes = async (supabase: SupabaseClient, professorId: string) => {
@@ -135,42 +138,163 @@ export const createQuizSetWithQuestions = async (
       id: professorId,
       email: professorEmail,
     })
-
-    if (professorError) {
-      throw new Error(`Failed to create professor record: ${professorError.message}`)
-    }
+    if (professorError) throw new Error(`Professor creation failed: ${professorError.message}`)
   }
 
-  // Create the quiz
+  // Create quiz
   const { data: quizData, error: quizError } = await supabase
     .from('quizzes')
     .insert({
-      title: `${quizTitle.trim()} (Set ${setLabel})`,
+      title: `${quizTitle} (Set ${setLabel})`,
       professor_id: professorId,
     })
     .select('id')
     .single()
 
-  if (quizError) {
-    throw new Error(`Quiz creation failed: ${quizError.message}`)
-  }
+  if (quizError || !quizData) throw quizError ?? new Error('Quiz insert failed.')
 
-  if (!quizData) {
-    throw new Error('Quiz creation failed: No data returned')
-  }
-
-  // Create the questions
+  // Create questions
   const { error: questionsError } = await supabase
     .from('questions')
     .insert(mcqs.map((mcq) => mapGeneratedQuestion(quizData.id, mcq)))
 
   if (questionsError) {
-    // Clean up the quiz if question creation fails
+    // Clean up quiz if question creation fails
     await supabase.from('quizzes').delete().eq('id', quizData.id)
-    throw new Error(`Questions creation failed: ${questionsError.message}`)
+    throw new Error(`Question creation failed: ${questionsError.message}`)
   }
 
   return quizData.id as string
+}
+
+// Anti-cheating quiz set functions
+export const createQuizSets = async (
+  supabase: SupabaseClient,
+  quizId: string,
+  quizSets: Record<string, GeneratedMcq[]>
+) => {
+  const results: QuizSet[] = []
+
+  for (const [setName, questions] of Object.entries(quizSets)) {
+    // Create quiz set record
+    const { data: quizSetData, error: quizSetError } = await supabase
+      .from('quiz_sets')
+      .insert({
+        quiz_id: quizId,
+        set_name: setName as 'A' | 'B' | 'C',
+      })
+      .select('id, quiz_id, set_name, created_at, updated_at')
+      .single()
+
+    if (quizSetError) {
+      throw new Error(`Failed to create quiz set ${setName}: ${quizSetError.message}`)
+    }
+
+    if (!quizSetData) {
+      throw new Error(`Quiz set ${setName} creation returned no data`)
+    }
+
+    results.push(quizSetData as QuizSet)
+
+    // Create questions for this set
+    const { error: questionsError } = await supabase
+      .from('questions')
+      .insert(questions.map((mcq) => ({
+        quiz_id: quizId,
+        question: mcq.question,
+        option_a: mcq.optionA,
+        option_b: mcq.optionB,
+        option_c: mcq.optionC,
+        option_d: mcq.optionD,
+        correct_answer: mcq.correctAnswer,
+        difficulty: mcq.difficulty,
+      })))
+
+    if (questionsError) {
+      // Clean up quiz set if question creation fails
+      await supabase.from('quiz_sets').delete().eq('id', quizSetData.id)
+      throw new Error(`Failed to create questions for set ${setName}: ${questionsError.message}`)
+    }
+  }
+
+  return results
+}
+
+export const getQuizSets = async (supabase: SupabaseClient, quizId: string) => {
+  const { data, error } = await supabase
+    .from('quiz_sets')
+    .select('*')
+    .eq('quiz_id', quizId)
+    .order('set_name')
+
+  if (error) throw error
+  return (data ?? []) as QuizSet[]
+}
+
+export const getStudentQuizAssignment = async (
+  supabase: SupabaseClient,
+  studentId: string,
+  quizId: string
+) => {
+  // Try to get existing assignment
+  const { data: existingAssignment, error: existingError } = await supabase
+    .from('student_quiz_assignments')
+    .select('*')
+    .eq('student_id', studentId)
+    .eq('quiz_id', quizId)
+    .single()
+
+  if (existingError && existingError.code !== 'PGRST116') {
+    throw existingError
+  }
+
+  if (existingAssignment) {
+    return existingAssignment as StudentQuizAssignment
+  }
+
+  // Create new assignment using database function
+  const { data: assignedSet, error: assignmentError } = await supabase
+    .rpc('assign_quiz_set', {
+      p_student_id: studentId,
+      p_quiz_id: quizId
+    })
+
+  if (assignmentError) {
+    throw new Error(`Failed to assign quiz set: ${assignmentError.message}`)
+  }
+
+  if (!assignedSet) {
+    throw new Error('No quiz set was assigned')
+  }
+
+  // Get the created assignment
+  const { data: newAssignment, error: fetchError } = await supabase
+    .from('student_quiz_assignments')
+    .select('*')
+    .eq('student_id', studentId)
+    .eq('quiz_id', quizId)
+    .single()
+
+  if (fetchError) throw fetchError
+  return newAssignment as StudentQuizAssignment
+}
+
+export const getQuizSetQuestions = async (
+  supabase: SupabaseClient,
+  quizId: string,
+  setName: 'A' | 'B' | 'C'
+) => {
+  const { data, error } = await supabase
+    .from('questions')
+    .select('*')
+    .eq('quiz_id', quizId)
+    .order('created_at')
+
+  if (error) throw error
+
+  // Shuffle questions for anti-cheating
+  const questions = (data ?? []) as Question[]
+  return questions.sort(() => Math.random() - 0.5)
 }
 
 export const fetchResults = async (supabase: SupabaseClient, professorId: string) => {

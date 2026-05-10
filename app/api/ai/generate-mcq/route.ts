@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { GeneratedMcq } from '@/lib/supabase/types'
+// PDF extraction moved to client-side to avoid server-side DOM issues
 
 export const runtime = 'nodejs'
 
@@ -58,28 +59,59 @@ const callOpenAI = async (prompt: string) => {
 }
 
 const callGemini = async (prompt: string) => {
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) throw new Error('GEMINI_API_KEY is missing.')
-
-  const model = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash'
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-      }),
-    }
-  )
-
-  if (!response.ok) {
-    const message = await response.text()
-    throw new Error(`Gemini request failed: ${message}`)
+  // Try to get Gemini API key from multiple sources
+  let apiKey = process.env.GEMINI_API_KEY
+  
+  // Fallback for development/testing (remove in production)
+  if (!apiKey && process.env.NODE_ENV === 'development') {
+    console.warn('GEMINI_API_KEY not found in environment variables')
+    // You can temporarily hardcode for testing here:
+    // apiKey = 'your-gemini-api-key-here'
+  }
+  
+  if (!apiKey) {
+    console.error('GEMINI_API_KEY is missing. Environment variables available:', {
+      GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
+      OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
+      AI_PROVIDER: process.env.AI_PROVIDER,
+      NODE_ENV: process.env.NODE_ENV
+    })
+    throw new Error('GEMINI_API_KEY is missing. Please configure it in your deployment environment.')
   }
 
-  const json = await response.json()
-  return json.candidates?.[0]?.content?.parts?.[0]?.text as string
+  const model = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash'
+  
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      const message = await response.text()
+      console.error('Gemini API error:', { status: response.status, message })
+      throw new Error(`Gemini request failed: ${message}`)
+    }
+
+    const json = await response.json()
+    const result = json.candidates?.[0]?.content?.parts?.[0]?.text as string
+    
+    if (!result) {
+      console.error('Invalid Gemini response structure:', json)
+      throw new Error('Gemini returned invalid response format')
+    }
+    
+    return result
+  } catch (error) {
+    console.error('Gemini API call failed:', error)
+    throw error
+  }
 }
 
 const normalizeMcqs = (items: unknown[]): GeneratedMcq[] =>
@@ -112,10 +144,9 @@ export async function POST(request: Request) {
 
     if (file && file.size > 0) {
       if (file.type === 'application/pdf') {
-        // PDF parsing temporarily disabled for Next.js 16 + Turbopack compatibility
-        // TODO: Implement PDF parsing with Web-compatible library when available
+        // PDF processing moved to client-side to avoid server-side DOM issues
         return NextResponse.json({ 
-          error: 'PDF upload temporarily disabled. Please paste text content directly.' 
+          error: 'PDF processing is now handled client-side. Please extract text from PDF and submit as text content.' 
         }, { status: 400 })
       } else {
         const text = await file.text()
@@ -128,8 +159,58 @@ export async function POST(request: Request) {
     }
 
     const prompt = buildPrompt(content, setLabel, Number.isFinite(count) ? Math.min(Math.max(count, 1), 20) : 5)
-    const provider = (process.env.AI_PROVIDER ?? (process.env.OPENAI_API_KEY ? 'openai' : 'gemini')).toLowerCase()
-    const raw = provider === 'gemini' ? await callGemini(prompt) : await callOpenAI(prompt)
+    
+    // Enhanced provider selection with fallback logic
+    let provider = (process.env.AI_PROVIDER ?? '').toLowerCase()
+    
+    // If no provider specified, choose based on available API keys
+    if (!provider) {
+      if (process.env.OPENAI_API_KEY) {
+        provider = 'openai'
+      } else if (process.env.GEMINI_API_KEY) {
+        provider = 'gemini'
+      } else {
+        // Default fallback - try OpenAI first, then Gemini
+        provider = 'openai'
+      }
+    }
+    
+    // Final fallback: if chosen provider doesn't have API key, switch to the other
+    if (provider === 'gemini' && !process.env.GEMINI_API_KEY && process.env.OPENAI_API_KEY) {
+      console.warn('Gemini API key not found, falling back to OpenAI')
+      provider = 'openai'
+    } else if (provider === 'openai' && !process.env.OPENAI_API_KEY && process.env.GEMINI_API_KEY) {
+      console.warn('OpenAI API key not found, falling back to Gemini')
+      provider = 'gemini'
+    }
+    
+    console.log(`Using AI provider: ${provider}`)
+    
+    let raw: string
+    try {
+      if (provider === 'gemini') {
+        raw = await callGemini(prompt)
+      } else {
+        raw = await callOpenAI(prompt)
+      }
+    } catch (error) {
+      // If the primary provider fails, try the fallback provider
+      const fallbackProvider = provider === 'gemini' ? 'openai' : 'gemini'
+      const fallbackHasApiKey = fallbackProvider === 'gemini' ? 
+        !!process.env.GEMINI_API_KEY : !!process.env.OPENAI_API_KEY
+      
+      if (fallbackHasApiKey) {
+        console.warn(`${provider} failed, trying fallback: ${fallbackProvider}`)
+        try {
+          raw = fallbackProvider === 'gemini' ? await callGemini(prompt) : await callOpenAI(prompt)
+        } catch (fallbackError) {
+          console.error('Both AI providers failed')
+          throw new Error(`Both AI providers failed. Primary error: ${error instanceof Error ? error.message : 'Unknown error'}. Fallback error: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`)
+        }
+      } else {
+        throw error
+      }
+    }
     const parsed = JSON.parse(extractJsonArray(raw))
     const mcqs = normalizeMcqs(Array.isArray(parsed) ? parsed : [])
 

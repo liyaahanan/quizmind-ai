@@ -48,6 +48,22 @@ export type Result = {
   updated_at: string
 }
 
+export type QuizSet = {
+  id: string
+  quiz_id: string
+  set_name: 'A' | 'B' | 'C'
+  created_at: string
+  updated_at: string
+}
+
+export type StudentQuizAssignment = {
+  id: string
+  student_id: string
+  quiz_id: string
+  assigned_set: 'A' | 'B' | 'C'
+  assigned_at: string
+}
+
 export type LeaderboardEntry = {
   studentId: string
   name: string

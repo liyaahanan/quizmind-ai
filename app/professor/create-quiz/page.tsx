@@ -1,20 +1,15 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
-import CreateQuizForm from './create-quiz-form'
+'use client'
 
-export default async function ProfessorCreateQuizPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+import AIQuizGenerator from './ai-quiz-generator'
 
-  if (!user) {
-    redirect('/login/professor')
-  }
-
+export default function CreateQuizPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-black px-4 py-8">
-      <CreateQuizForm />
-    </main>
+    <div className="min-h-screen bg-black text-white p-8">
+      <h1 className="text-3xl font-bold mb-6">
+        Create AI Quiz
+      </h1>
+
+      <AIQuizGenerator />
+    </div>
   )
 }
