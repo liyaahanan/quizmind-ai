@@ -78,17 +78,15 @@ const callOpenAI = async (prompt: string) => {
 }
 
 const callGemini = async (prompt: string) => {
-  // Try to get Gemini API key from multiple sources
-  let apiKey = process.env.GEMINI_API_KEY
+  // Temporary testing fix — move back to environment variables later.
+  const apiKey = 'PASTE_MY_GEMINI_API_KEY_HERE'
   
-  // Fallback for development/testing (remove in production)
-  if (!apiKey && process.env.NODE_ENV === 'development') {
-    console.warn('GEMINI_API_KEY not found in environment variables')
-    // You can temporarily hardcode for testing here:
-    // apiKey = 'your-gemini-api-key-here'
-  }
+  // Use environment variable as fallback if hardcoded key is not set
+  const finalApiKey = (apiKey && apiKey !== 'PASTE_MY_GEMINI_API_KEY_HERE') 
+    ? apiKey 
+    : process.env.GEMINI_API_KEY
   
-  if (!apiKey) {
+  if (!finalApiKey) {
     console.error('GEMINI_API_KEY is missing. Environment variables available:', {
       GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
       OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
@@ -102,7 +100,7 @@ const callGemini = async (prompt: string) => {
   
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${finalApiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
