@@ -84,7 +84,7 @@ const callGemini = async (prompt: string) => {
   // Use environment variable first, then fallback
   const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyDr_kB6X5bI5avIbz2winQ9gpiyjM4vxQI'
 
- const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash'
+ const model = 'gemini-2.0-flash'
   
   try {
     const response = await fetch(
