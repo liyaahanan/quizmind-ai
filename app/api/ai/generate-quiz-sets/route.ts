@@ -94,7 +94,7 @@ const callGemini = async (prompt: string) => {
     throw new Error('GEMINI_API_KEY is missing. Please configure it in your deployment environment.')
   }
 
-  const model = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash-latest'
+ const model = process.env.GEMINI_MODEL ?? 'gemini-1.5-pro'
   
   try {
     const response = await fetch(
