@@ -59,27 +59,17 @@ const callOpenAI = async (prompt: string) => {
 }
 
 const callGemini = async (prompt: string) => {
-  // Temporary testing fix — move back to environment variables later.
-  const apiKey = 'AIzaSyAZA7iWCwTvlKib4fr4bsWivlHPOkqJ7XI'
+  // Debug logging for environment variables
+  console.log('Gemini key exists:', !!process.env.GEMINI_API_KEY)
   
-  // Use hardcoded key (now real) or environment variable as fallback
-  const finalApiKey = apiKey || process.env.GEMINI_API_KEY
-  
-  if (!finalApiKey) {
-    console.error('GEMINI_API_KEY is missing. Environment variables available:', {
-      GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
-      OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
-      AI_PROVIDER: process.env.AI_PROVIDER,
-      NODE_ENV: process.env.NODE_ENV
-    })
-    throw new Error('GEMINI_API_KEY is missing. Please configure it in your deployment environment.')
-  }
+  // Use environment variable first, then fallback
+  const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyDr_kB6X5bI5avIbz2winQ9gpiyjM4vxQI'
 
-const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash'
+  const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash'
   
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${finalApiKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
