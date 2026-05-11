@@ -75,11 +75,11 @@ const callGemini = async (prompt: string) => {
     throw new Error('GEMINI_API_KEY is missing. Please configure it in your deployment environment.')
   }
 
-const model = process.env.GEMINI_MODEL ?? 'gemini-pro'
+const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash'
   
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${finalApiKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${finalApiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
