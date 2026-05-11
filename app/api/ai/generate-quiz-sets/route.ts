@@ -234,9 +234,7 @@ export async function POST(request: Request) {
           console.warn(`${provider} failed for Set A, trying fallback: ${fallbackProvider}`)
           rawA = fallbackProvider === 'gemini' ? await callGemini(promptA) : await callOpenAI(promptA)
         } else {
-          console.warn('No API keys available for any provider')
-          throw new Error('No AI API keys configured. Please set GEMINI_API_KEY or OPENAI_API_KEY.')
-        }
+          throw error
       }
       
       const parsedA = JSON.parse(extractJsonArray(rawA))
