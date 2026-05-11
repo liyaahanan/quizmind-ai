@@ -234,7 +234,8 @@ export async function POST(request: Request) {
           console.warn(`${provider} failed for Set A, trying fallback: ${fallbackProvider}`)
           rawA = fallbackProvider === 'gemini' ? await callGemini(promptA) : await callOpenAI(promptA)
         } else {
-          throw error
+          throw error 
+        }
       }
       
       const parsedA = JSON.parse(extractJsonArray(rawA))
@@ -266,8 +267,7 @@ export async function POST(request: Request) {
           console.warn(`${provider} failed for Set B, trying fallback: ${fallbackProvider}`)
           rawB = fallbackProvider === 'gemini' ? await callGemini(promptB) : await callOpenAI(promptB)
         } else {
-          console.warn('No API keys available for any provider')
-          throw new Error('No AI API keys configured. Please set GEMINI_API_KEY or OPENAI_API_KEY.')
+          throw error
         }
       }
       
@@ -300,8 +300,7 @@ export async function POST(request: Request) {
           console.warn(`${provider} failed for Set C, trying fallback: ${fallbackProvider}`)
           rawC = fallbackProvider === 'gemini' ? await callGemini(promptC) : await callOpenAI(promptC)
         } else {
-          console.warn('No API keys available for any provider')
-          throw new Error('No AI API keys configured. Please set GEMINI_API_KEY or OPENAI_API_KEY.')
+          throw error
         }
       }
       
