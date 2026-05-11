@@ -194,7 +194,8 @@ export async function POST(request: Request) {
           throw new Error(`Both AI providers failed. Primary error: ${error instanceof Error ? error.message : 'Unknown error'}. Fallback error: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`)
         }
       } else {
-        throw error
+        console.warn('No API keys available for any provider')
+        throw new Error('No AI API keys configured. Please set GEMINI_API_KEY or OPENAI_API_KEY.')
       }
     }
     const parsed = JSON.parse(extractJsonArray(raw))
