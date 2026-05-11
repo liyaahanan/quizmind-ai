@@ -32,8 +32,8 @@ Syllabus content:
 ${text.slice(0, 12000)}
 `
 
-const callGemini = async (prompt: string) => {
-  const apiKey =AIzaSyAZA7iWCwTvlKib4fr4bsWivlHPOkqJ7XI
+const callOpenAI = async (prompt: string) => {
+  const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('OPENAI_API_KEY is missing.')
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -60,12 +60,10 @@ const callGemini = async (prompt: string) => {
 
 const callGemini = async (prompt: string) => {
   // Temporary testing fix — move back to environment variables later.
-  const apiKey = 'PASTE_MY_GEMINI_API_KEY_HERE'
+  const apiKey = 'AIzaSyAZA7iWCwTvlKib4fr4bsWivlHPOkqJ7XI'
   
-  // Use environment variable as fallback if hardcoded key is not set
-  const finalApiKey = (apiKey && apiKey !== 'PASTE_MY_GEMINI_API_KEY_HERE') 
-    ? apiKey 
-    : process.env.GEMINI_API_KEY
+  // Use hardcoded key (now real) or environment variable as fallback
+  const finalApiKey = apiKey || process.env.GEMINI_API_KEY
   
   if (!finalApiKey) {
     console.error('GEMINI_API_KEY is missing. Environment variables available:', {
